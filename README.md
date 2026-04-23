@@ -187,3 +187,52 @@ LEFT JOIN Product_Supplier_Master c
     ON p.parent_sku = c.sku
 WHERE p.parent_sku IS NOT NULL
   AND c.sku IS NULL;
+
+****  Data Cleaning Justification********
+
+Each data cleaning step was performed to address specific data quality issues and ensure the dataset was consistent, reliable, and suitable for relational modeling.
+
+SKU Standardization:
+SKU-related fields (sku, alt_sku, parent_sku) were standardized by trimming whitespace, converting values to uppercase, and replacing blanks with NULL. This was necessary to ensure consistency in product identifiers and to prevent duplicate records caused by formatting differences (e.g., “sku-1001” vs. “SKU-1001”). Consistent identifiers are critical for joins and maintaining referential integrity.
+
+Product Description Cleanup:
+Product descriptions were trimmed to remove unnecessary whitespace. This ensured consistency in text fields while preserving the original meaning, since descriptions are free-text and should not be over-normalized.
+
+Category Standardization:
+Categories were normalized by removing multi-valued entries and mapping them to a single primary category. This was necessary because inconsistent values (e.g., “Tech / Student”) prevent accurate grouping and violate normalization principles. Assigning each product to one category improves query performance and analytical clarity.
+
+Vendor Name Cleanup:
+Vendor names were standardized to remove inconsistencies (e.g., “Urban Sources” → “Urban Source”). This prevents duplicate vendor records and ensures accurate relationships between products and vendors in the final schema.
+
+Vendor Phone Standardization:
+Formatting characters were removed from phone numbers to ensure a consistent numeric format. This improves data uniformity and allows for easier comparison, validation, and potential integration with external systems.
+
+Vendor Representative Cleanup:
+Vendor representative names were cleaned by removing titles, correcting typographical errors, and eliminating extra notes. This ensures consistent naming and avoids duplication caused by minor variations.
+
+Price Cleaning (Cost and List Price):
+Currency indicators (USD, CAD, $) were removed from price fields, and values were converted to numeric format with consistent decimal precision. This was necessary because embedded text prevents mathematical operations and accurate financial analysis.
+
+Reorder Level Standardization:
+Text-based values (e.g., “ten”) were converted into numeric form. This ensures the field can be used for calculations and inventory analysis.
+
+Pack Size Standardization:
+Different representations of packaging (e.g., “2/pack,” “2 pack”) were standardized into consistent formats. This improves readability and prevents duplicate categorical values.
+
+Weight Standardization:
+Weight values were converted from multiple units (kg, lb, oz) into a single unit (grams). This ensures consistency and allows for accurate comparisons and calculations across products.
+
+Length Standardization:
+Length values were converted into centimeters from mixed units such as inches. Standardizing units eliminates ambiguity and supports consistent analysis.
+
+Discontinued Field Standardization:
+The discontinued field was standardized into a consistent Y/N format. This ensures clarity and allows the field to function as a proper binary attribute.
+
+Removal of Redundant Columns:
+Columns such as price_currency, price_numeric, weight_value, weight_unit, weight_kg, length_value, length_unit, and length_cm were removed because they were either empty, duplicated information, or became unnecessary after standardization. Removing these columns simplifies the dataset and supports normalization.
+
+Notes Field Handling:
+The notes column was retained but only lightly cleaned by trimming whitespace. It was not normalized because it contains unstructured, free-text information that does not fit well into a structured schema.
+
+Parent SKU Validation:
+Parent SKU relationships were validated to ensure referential integrity. Ensuring that each parent_sku corresponds to an existing sku prevents broken relationships and maintains data consistency.
