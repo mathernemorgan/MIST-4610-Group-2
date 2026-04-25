@@ -1,3 +1,7 @@
+**Team Members/Roles**
+
+Hiya Shah (Data Wrangler), Morgan Matherne (Database Designer), Mark Monzer (Conceptual Modeler), Roshan Gadiraju (SQL Writer), Zeynep Koseoglu (Group Leader)
+
 **Conceptual Model / Database Description**
 
 Our database was designed to transform the two messy source spreadsheets, Sales_Dump and Product_Supplier_Master, into a compact relational model that supports data cleaning, structured storage, and the required SQL analysis. This matches the project goal of creating a conceptual model, implementing a database, and using that database to answer business questions. The assignment also emphasizes that a strong final model should remain relatively compact, with about 8 to 10 entities, and should clearly show entities, attributes, identifiers, and relationships.
