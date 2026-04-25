@@ -187,8 +187,9 @@ LEFT JOIN Product_Supplier_Master c
     ON p.parent_sku = c.sku
 WHERE p.parent_sku IS NOT NULL
   AND c.sku IS NULL;
-**
-Data Cleaning Justification**
+  
+****
+Data Cleaning Justification****
 
 Each data cleaning step was performed to address specific data quality issues and ensure the dataset was consistent, reliable, and suitable for relational modeling.
 
