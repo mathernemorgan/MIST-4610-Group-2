@@ -1,9 +1,9 @@
-**Team Members / Roles**
+##**Team Members / Roles**
 
 Hiya Shah (Data Wrangler), Morgan Matherne (Database Designer), Mark Monzer (Conceptual Modeler), Roshan Gadiraju (SQL Writer), Zeynep Koseoglu (Group Leader)
 
 
-**Case Summary**
+##**Case Summary**
 
 Northline Outfitters is a small online retail company that sells student-focused lifestyle and technology accessories, including items such as hoodies, water bottles, desk lamps, phone cases, keyboards, mouse pads, and backpacks. The company purchases products from external vendors and sells them directly to customers across the United States and Canada. Because the business is still growing, its operational data has historically been stored in Excel spreadsheets rather than in a structured database system.
 
@@ -13,7 +13,7 @@ The objective of this project was to transform these raw spreadsheets into a cle
 
 The cleaned and structured database supports important business questions for Northline Outfitters, such as identifying top-selling products by country, evaluating employee performance in handling orders, and analyzing vendor-product relationships across categories. By converting the original spreadsheets into a relational model, the company gains a more reliable and scalable data foundation for decision-making, similar to what would be expected in a real-world business environment transitioning from spreadsheet-based operations to a database system.
 
-**Conceptual Model / Database Description**
+##**Conceptual Model / Database Description**
 ## Data Model
 ![Project Image](mistproject2.png)
 
