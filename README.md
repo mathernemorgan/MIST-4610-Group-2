@@ -250,4 +250,46 @@ Parent SKU validation was performed to confirm that every non-null parent_sku ma
 
 Overall, these cleaning steps transformed Product_Supplier_Master from a messy spreadsheet export into a structured dataset suitable for loading into normalized entities such as Product, Vendor, and Category. This directly supports the project requirement to identify major data quality issues, explain how they were resolved, and include SQL statements used to standardize, split, convert, or update the imported data.
 
+**Data Cleaning Process: Sales_Dump**
+
+The Sales_Dump dataset contained numerous data quality issues, including inconsistent date formats, embedded text within structured fields, mixed currency representations, inconsistent identifiers, and unstructured notes. These issues were addressed using SQL transformations to convert the dataset into a clean, structured format suitable for relational database design and analysis. The following steps summarize the cleaning process and provide justification for each transformation.
+
+Date Standardization
+
+Sale dates were originally stored in multiple inconsistent formats (e.g., “10-11-2025”, “Oct 17 25”, “October 5 25”). These values were converted into a consistent SQL DATE format (YYYY-MM-DD) using STR_TO_DATE. This step was necessary to enable proper sorting, filtering, and time-based analysis, as inconsistent date formats cannot be reliably queried.
+
+Customer Attribute Extraction
+
+The customer_info column contained multiple pieces of information in a single unstructured field, including customer name, customer type, and loyalty indicators. This field was decomposed into separate attributes such as customer_name, customer_type, and is_loyalty_member. This transformation improved normalization and allowed each attribute to be queried independently, eliminating redundancy and ambiguity.
+
+Geographic Parsing
+
+Shipping information contained inconsistent entries such as “Same as billing” or combined values like “Toronto, ON.” These were parsed into structured attributes: ship_city, ship_region, and ship_country. This ensured geographic data could be used for grouping and analysis, particularly for required queries involving country-level sales comparisons.
+
+Currency and Financial Normalization
+
+Price-related fields (unit_price, line_total, and discounts) contained embedded currency codes (USD, CAD), symbols ($), and percentage signs. These were cleaned by removing text and symbols and converting values into numeric DECIMAL format. Currency indicators were extracted and standardized separately where necessary. This step was critical to enable accurate financial calculations and comparisons.
+
+SKU Standardization
+
+Product identifiers in the sku column were inconsistent in formatting (e.g., “sku-c-1002” vs. “SKU-C-1002”). These were standardized by trimming whitespace and converting values to uppercase. This ensured accurate joins with the Product Master dataset and maintained referential integrity across tables.
+
+Payment Method Cleaning
+
+Payment methods contained inconsistent casing and hidden formatting issues (e.g., “visa”, “VISA”, trailing spaces). These values were standardized by trimming whitespace and enforcing consistent capitalization. This prevented duplicate entries and ensured reliable grouping by payment type.
+
+Operational Text Mining (Notes Column)
+
+The notes column contained unstructured operational information. This text was analyzed to extract meaningful business flags and converted into Boolean attributes:
+
+is_late_ship: identifies orders requiring operational review
+is_gift: flags orders requiring gift receipts
+is_manual_discount: captures manually applied discounts or off-system adjustments
+
+This transformation converted unstructured text into structured, queryable fields.
+
+Referential Integrity Checks
+
+During the cleaning process, inconsistencies such as missing customer emails and SKUs not found in the Product Master were identified. Rather than discarding these records, placeholder values (e.g., “Unknown”) were used to preserve data completeness while maintaining referential integrity in the relational schema.
+
 **SQL Queries**
