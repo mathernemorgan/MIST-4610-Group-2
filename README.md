@@ -1,3 +1,13 @@
+## Table of Contents
+
+1. [Team Members / Roles](#team-members--roles)
+2. [Case Summary](#case-summary)
+3. [Conceptual Model / Database Description](#conceptual-model--database-description)
+4. [Data Model](#data-model)
+5. [Data Cleaning Process: Product_Supplier_Master](#data-cleaning-process-product_supplier_master)
+6. [Data Cleaning Process: Sales_Dump](#data-cleaning-process-sales_dump)
+7. [Queries](#queries)
+
 ## **Team Members / Roles**
 
 Hiya Shah (Data Wrangler), Morgan Matherne (Database Designer), Mark Monzer (Conceptual Modeler), Roshan Gadiraju (SQL Writer), Zeynep Koseoglu (Group Leader)
