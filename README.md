@@ -249,3 +249,5 @@ Redundant helper columns such as price_currency, price_numeric, weight_value, we
 Parent SKU validation was performed to confirm that every non-null parent_sku matched an existing sku. This step ensured that product family relationships remained valid after the identifier cleanup and supported the final normalized product design.
 
 Overall, these cleaning steps transformed Product_Supplier_Master from a messy spreadsheet export into a structured dataset suitable for loading into normalized entities such as Product, Vendor, and Category. This directly supports the project requirement to identify major data quality issues, explain how they were resolved, and include SQL statements used to standardize, split, convert, or update the imported data.
+
+**SQL Queries**
