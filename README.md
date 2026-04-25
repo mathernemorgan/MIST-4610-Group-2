@@ -286,6 +286,7 @@ Issue: Dates were stored as inconsistent strings (e.g., "10-11-2025" and "Oct 17
 Solution: Used the STR_TO_DATE function to parse various string formats into the standard SQL DATE format (YYYY-MM-DD).
 
 SQL
+```sql
 UPDATE Sales_Dump
 SET sale_date = CASE 
     WHEN sale_date LIKE '%-%' THEN STR_TO_DATE(sale_date, '%m-%d-%Y')
@@ -356,7 +357,7 @@ SELECT IFNULL(c.customer_id, 9999), ...
 FROM Sales_Dump s
 LEFT JOIN Customers c ON s.customer_email = c.email;
 Summary: Through these programmatic updates, the dataset was transformed from a low-integrity "flat" format into a clean, normalized structure ready for complex SQL joins and multi-dimensional reporting.
-
+```
 
 ## **Queries**
 
