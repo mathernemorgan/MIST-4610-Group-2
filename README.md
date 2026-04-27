@@ -174,7 +174,7 @@ FROM Sales_Dump s
 LEFT JOIN Customers c ON s.customer_email = c.email;
 Summary: Through these programmatic updates, the dataset was transformed from a low-integrity "flat" format into a clean, normalized structure ready for complex SQL joins and multi-dimensional reporting.
 
-## ** SQL codes to clean the Product_Supplier_Master table**
+## SQL codes to clean the Product_Supplier_Master table
 ```sql
 -- SKU-related cleanup
 UPDATE Product_Supplier_Master
