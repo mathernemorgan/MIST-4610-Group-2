@@ -17,7 +17,7 @@ Group B4
 
 ## **Team Members / Roles**
 
-Zeynep Koseoglu (Database Designer & Data Wrangler), Morgan Matherne (Conceptual Modeler & Group Leader), Roshan Gadiraju (SQL Writer), Hiya Shah (Data Wrangler)
+Zeynep Koseoglu (Database Designer & Data Wrangler & SQL Writer), Morgan Matherne (Conceptual Modeler & Group Leader & Data Wrangler), Hiya Shah (Data Wrangler), Roshan Gadiraju, Mark Monzer
 
 
 ## **Case Summary**
