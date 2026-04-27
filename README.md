@@ -83,6 +83,27 @@ We imported the two sheets into MySQL and used the following queries to clean th
 | 9 | `line_total` | 62 nulls (31%) — should be derivable but source columns are also inconsistently formatted | 62 nulls |
 | 10 | `order_id` | Country encoded implicitly in prefix (`UORD` = US, `CORD` = CA) — undocumented business rule | 200 |
 
+| 1 | `line_id` 
+| 2 | `order_id` 
+| 3 | `sale_date` 
+| 4 | `employee_ref` 
+| 5 | `manager_ref` 
+| 6 | `customer_info` 
+| 7 | `customer_email` 
+| 8 | `payment_method` 
+| 9 | `sku` 
+| 10 | `product_description` 
+| 11 | `category` 
+| 12 | `quantity` 
+| 13 | `unit_price` 
+| 14 | `discount` 
+| 15 | `tax` 
+| 16 | `line_total` 
+| 17 | `ship_country`
+| 18 | `ship_to`
+| 19 | `size_or_weight`
+| 20 | `return_flag`
+| 21 | `notes`
 ---
 
 ## `Product_Supplier_Master`
