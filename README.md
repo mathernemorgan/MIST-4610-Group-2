@@ -28,36 +28,37 @@ For example, inconsistent product names and duplicate entries make it difficult 
 
 The cleaned and structured database supports important business questions for Northline Outfitters, such as identifying top-selling products by country, evaluating employee performance in handling orders, and analyzing vendor-product relationships across categories. By converting the original spreadsheets into a relational model, the company gains a more reliable and scalable data foundation for decision-making, similar to what would be expected in a real-world business environment transitioning from spreadsheet-based operations to a database system.
 
+## Database Description
+
+Our database was designed to transform the two messy source spreadsheets, Sales_Dump and Product_Supplier_Master, into a compact relational model that supports data cleaning, structured storage, and the required SQL analysis. 
+
+The model centers on the retail sales process for Northline Outfitters, a small online retailer that purchases products from outside vendors and sells them directly to customers in the United States and Canada. The database separates operational data into core business entities so that customer, employee, product, vendor, order, and payment information are not stored repeatedly in a single spreadsheet row. This reduces redundancy and makes the data easier to query and maintain. 
 
 ## **Conceptual Model / Database Description**
 ## Data Model
 ![Project Image](datamodelproject2.png)
 
-## Database Database Description
+## Data Model Description
+The data model represents the operations of Northline, a retail company that sells student-friendly gear across the United States and Canada. The model is designed to track sales transactions, product inventory, customer demographics, employee performance, and vendor relationships across 8 interrelated entities.
 
-Our database was designed to transform the two messy source spreadsheets, Sales_Dump and Product_Supplier_Master, into a compact relational model that supports data cleaning, structured storage, and the required SQL analysis. 
+## Entities and Relationships
 
-The model centers on the retail sales process for Northline Outfitters, a small online retailer that purchases products from outside vendors and sells them directly to customers in the United States and Canada. The database separates operational data into core business entities so that customer, employee, product, vendor, order, and payment information are not stored repeatedly in a single spreadsheet row. This reduces redundancy and makes the data easier to query and maintain. T
+customer stores information about Northline's customers, including their name, email, customer type (Regular, Student, or Guest), and loyalty status. Each customer can place many orders, establishing a one-to-many relationship between customer and orders.
 
-| Entity | Type | Key Attributes | Relationships |
-|---|---|---|---|
-| **Orders** | Transactional | order_id (PK), sale_date, shipping_location, country | Belongs to 1 Customer; handled by 1 Employee; has many OrderLines; uses 1 PaymentMethod |
-| **OrderLines** | Transactional | line_id (PK), order_id (FK), sku (FK), quantity, unit_price, discount_amt, tax_amt, line_total, return_status, size, weight | Belongs to 1 Order; references 1 Product |
-| **Product** | Reference | sku (PK), alt_sku, parent_sku, description, list_price, discontinued, weight, length, reorder_level, pack_size, notes, category_id (FK) | Appears in many OrderLines; belongs to 1 Category; linked to Vendors via product_vendor |
-| **Categories** | Lookup | category_id (PK), category_name | Classifies many Products |
-| **Vendor** | Reference | vendor_id (PK), vendor_name, phone, vendor_rep | Linked to Products via product_vendor |
-| **product_vendor** | Bridge | sku (FK), vendor_id (FK), cost | Connects Products to Vendors; stores vendor-specific cost |
-| **Customer** | Reference | customer_id (PK), name, email, customer_type, notes, loyalty_info | Places many Orders |
-| **Employees** | Reference | employee_id (PK), manager_id (FK self-ref) | Handles many Orders; manager_id supports hierarchical reporting |
+orders captures each sales transaction, including the sale date, shipping destination, payment method, and the employee who processed the order. Each order is associated with one customer and one employee, but can contain multiple line items, creating a one-to-many relationship between orders and order_line.
 
+order_line represents the individual line items within each order, recording the specific product purchased, quantity, unit price, discounts, taxes, line total, and fulfillment flags such as whether the item was returned, shipped late, or included a gift receipt. Each order_line links to one product and one order.
 
-The model separates transactional data into Orders and OrderLines. Orders store order-level details (date, customer, employee, payment, location), while OrderLines store product-level details (SKU, quantity, price, discount, tax, returns). This prevents repeating groups and supports accurate sales and revenue analysis.
+product contains the full catalog of products Northline carries, including descriptions, pricing, weight, dimensions, reorder levels, and discontinuation status. Each product belongs to one category and is managed by one employee. A product can appear in multiple order lines and can be supplied by multiple vendors.
 
-The Product table stores all product attributes (SKU, description, price, size/weight, category, etc.) and includes parent_sku to handle product variants. Product data is separated from transactions so it is maintained once and linked through SKU.
+categories is a simple lookup table that classifies products into groups such as Accessories, Tech, Audio, Lifestyle, Apparel, and School. One category can be associated with many products.
 
-Supporting tables include Category, Vendor, and a product_vendor bridge table. Categories standardize product groupings, while Vendor stores supplier information. The bridge table allows products to be linked to vendors and supports more flexible supplier relationships.
+vendor stores information about Northline's suppliers, including vendor name, phone number, and sales representative. Each vendor can supply multiple products.
 
-Customer and employee data were separated into Customer and Employees tables to reduce duplication from the original dataset and support performance analysis. PaymentMethods was also separated to standardize inconsistent payment values.
+product_vendor serves as an associative entity resolving the many-to-many relationship between product and vendor. It records the cost at which each vendor supplies each product, allowing Northline to track which vendors carry which products and at what price.
+
+employee represents Northline's staff members who process orders and manage products. The employee table has a self-referencing relationship called manager_employee, where each employee may report to a manager who is also stored in the same table. This recursive relationship allows the model to represent the organizational hierarchy without a separate manager table.
+
 
 ## Issues Identified
 ## `Sales_Dump`
