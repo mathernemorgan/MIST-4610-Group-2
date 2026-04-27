@@ -480,4 +480,6 @@ FROM Sales_Dump
 GROUP BY ship_country, category
 ORDER BY ship_country, avg_discount_value DESC;
 ```
+<img width="1472" height="685" alt="image" src="https://github.com/user-attachments/assets/c8fe5c0c-81cd-4175-87f7-25e133482a8e" />
+
     
