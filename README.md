@@ -118,8 +118,6 @@ We imported the two sheets into MySQL and used the following queries to clean th
 
 
 ## SQL Code used to clean Sales_Dump 
-
-SQL
 ```
 1. UPDATE Sales_Dump
 SET sale_date = CASE 
@@ -170,8 +168,7 @@ SET sku = UPPER(TRIM(sku)),
 Issue: Operational insights (e.g., late shipments or gift orders) were buried in unstructured text within the notes column.
 Solution: Created new Boolean columns and used the LIKE operator to extract specific flags for advanced business intelligence.
 
-9. 
--- Identifying Late Shipments
+9. -- Identifying Late Shipments
 UPDATE Sales_Dump 
 SET is_late_ship = 1 
 WHERE notes LIKE '%late%';
