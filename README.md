@@ -70,41 +70,274 @@ We imported the two sheets into MySQL and used the following queries to clean th
 ## Issues Identified
 ## `Sales_Dump`
 
-| # | Column(s) | Issue | Rows Affected |
-|---|-----------|-------|---------------|
-| 1 | `sale_date` | 7+ date formats mixed; DD/MM vs MM/DD ambiguity (e.g. `10/11/2025`) | 200 |
-| 2 | `unit_price`, `line_total` | Currency codes embedded in numeric string (`"USD 18.99"`); `line_total` mixes `"$19.43"` with bare `97.19` | 200 / 138 |
-| 3 | `discount` | Six formats: `"10%"`, `"5"`, `"promo5"`, `"student 10%"`, `"0"`, nulls — unclear if bare numbers are % or $ | 168 non-null |
-| 4 | `payment_method` | Case inconsistency: `"visa"` / `"VISA"` (53 rows); abbreviation mismatch: `"MC"` vs `"Mastercard"` | 200 |
-| 5 | `ship_country` | `"US"` and `"USA"` used interchangeably; `"CA"` and `"Canada"` both present; 3 nulls | ~130 + 3 nulls |
-| 6 | `return_flag` | Boolean Y/N field has 40 nulls (20%) — unclear if null means `"N"` or unknown | 40 nulls |
-| 7 | `customer_info` | Multi-value field with 3 delimiters (`;`, `\|`, `/`); buries loyalty status, student flag, and country in a single string | 200 |
-| 8 | `customer_email` | 50 nulls (25% of records) | 50 nulls |
-| 9 | `line_total` | 62 nulls (31%) — should be derivable but source columns are also inconsistently formatted | 62 nulls |
-| 10 | `order_id` | Country encoded implicitly in prefix (`UORD` = US, `CORD` = CA) — undocumented business rule | 200 |
+### 1. `line_id`
+**Purpose:** Unique identifier for each line item (e.g., `LN-001`)
 
-| 1 | `line_id` 
-| 2 | `order_id` 
-| 3 | `sale_date` 
-| 4 | `employee_ref` 
-| 5 | `manager_ref` 
-| 6 | `customer_info` 
-| 7 | `customer_email` 
-| 8 | `payment_method` 
-| 9 | `sku` 
-| 10 | `product_description` 
-| 11 | `category` 
-| 12 | `quantity` 
-| 13 | `unit_price` 
-| 14 | `discount` 
-| 15 | `tax` 
-| 16 | `line_total` 
-| 17 | `ship_country`
-| 18 | `ship_to`
-| 19 | `size_or_weight`
-| 20 | `return_flag`
-| 21 | `notes`
+**Issues:**
+- No issues detected. All values follow the `LN-###` format and appear unique.
+
 ---
+
+### 2. `order_id`
+**Purpose:** Links line items to a parent order (e.g., `UORD-1041`, `CORD-1003`)
+
+**Issues:**
+- **Same order ID appears on multiple rows** — expected for multi-line orders, but some orders appear across inconsistent dates (see `sale_date` issues below).
+- **Two prefixes used (`UORD-` vs `CORD-`)** — presumably US vs. Canada orders, but this distinction is never documented and inconsistently applied (some CA-country rows use `UORD-`, and vice versa).
+
+```
+LN-054: CORD-1032 | ship_country = blank (missing)
+LN-057: CORD-1041 | ship_country = blank (missing)
+LN-066: UORD-1052 | ship_country = blank (missing)
+```
+
+---
+
+### 3. `sale_date`
+**Purpose:** Date the sale occurred
+
+**Issues:**
+- **At least 7 different date formats used** — no consistent standard:
+
+| Format Example       | Row(s)       |
+|----------------------|--------------|
+| `10-11-2025`         | LN-001       |
+| `Oct 17 25`          | LN-002       |
+| `October 5 25`       | LN-003       |
+| `June 11 2025`       | LN-004       |
+| `10/14/2025`         | LN-014       |
+| `31/10/2025`         | LN-017       |
+| `10 Sep 2025`        | LN-010       |
+
+- **Same order with different date formats** — e.g., `UORD-1095` (LN-166, LN-167, LN-168) uses three different formats for the same date.
+- **Future date found** — LN-191 has `May 1 2026`, which is outside the dataset's 2025 scope.
+- **Ambiguous MM/DD vs DD/MM** — formats like `08/10/2025` (LN-105) could be August 10 or October 8 depending on locale convention.
+
+---
+
+### 4. `employee_ref`
+**Purpose:** ID of the employee who processed the sale (e.g., `EMU-202`)
+
+**Issues:**
+- No format issues detected. All values follow a consistent `EM?-###` pattern.
+- **Undocumented prefix convention:** `EMU-` vs `EMC-` appears to distinguish US vs. Canada employees, but this is not documented and the relationship to `ship_country` is not enforced.
+
+---
+
+### 5. `manager_ref`
+**Purpose:** ID of the supervising manager (e.g., `EMU-M03`)
+
+**Issues:**
+- No format issues detected.
+- Same undocumented `EMU-M` vs `EMC-M` prefix concern as `employee_ref`.
+
+---
+
+### 6. `customer_info`
+**Purpose:** Customer name and optional attributes like loyalty status or customer type
+
+**Issues:**
+- **Multiple delimiter styles used** — semicolons (`;`), pipes (`|`), and slashes (`/`) all appear within the same column:
+  - `Mason Rivera; Loyalty? Y` (LN-001)
+  - `Grace Hall | Student | US` (LN-003)
+  - `Zoe Garcia / guest order` (LN-009)
+- **Multiple attributes packed into one field** — loyalty status, student flag, country, and guest/registered status are all embedded in free text rather than stored in separate columns.
+- **Same customer appears in multiple formats** across rows with no canonical form.
+- **No null values**, but data is not parseable without custom string logic.
+
+---
+
+### 7. `customer_email`
+**Purpose:** Customer's email address
+
+**Issues:**
+- **Many blank/missing values** — guest orders and some loyalty customers have no email (LN-008, LN-011, LN-016, LN-023, LN-031, and many more).
+- **Invalid email formats:**
+  - LN-017: `emma_wilson@school.ed` — TLD is truncated
+  - LN-022: `ella.wright@example.caa` — extra character in TLD
+- **Same customer with different emails** — e.g., Grace Hall appears as `gracehall@gmail.com`, `grace_hall@school.edu`, and `grace.hall@example.com` across rows with no reconciliation.
+- **Inconsistent use of personal vs. institutional email** for the same customer on different orders.
+
+---
+
+### 8. `payment_method`
+**Purpose:** Method used to pay (e.g., VISA, Debit, Cash)
+
+**Issues:**
+- **Inconsistent capitalization** — the same method recorded differently across rows:
+  - `VISA` / `visa` / `Visa`
+  - `Debit` / `debit`
+  - `MC` / `Mastercard` / `MasterCard`
+- **Non-standard abbreviation** — `MC` for Mastercard is used inconsistently alongside the full name.
+- **`AMEX`** appears only in LN-008 and LN-146 — may be valid but is not in any documented allowable-values list.
+- **`Interac`** appears for some rows where `Debit` might be expected; relationship between the two is undefined.
+
+---
+
+### 9. `sku`
+**Purpose:** Stock-keeping unit identifier for the product (e.g., `SKU-C-1014`)
+
+**Issues:**
+- **Inconsistent capitalization** — some SKUs are entirely lowercase:
+  - `sku-c-1012` (LN-006), `sku-u-1019` (LN-013), `sku-u-1011` (LN-048), `sku-c-1020` (LN-062), `sku-u-1001` (LN-080), etc.
+- The same product can appear under both cased variants, making joins or lookups unreliable without normalization.
+
+---
+
+### 10. `product_description`
+**Purpose:** Human-readable product name
+
+**Issues:**
+- **Inconsistent capitalization** — the same product appears in title case and ALL CAPS in different rows:
+
+| Product              | Title Case              | ALL CAPS                 |
+|----------------------|-------------------------|--------------------------|
+| Breeze Ring Light    | LN-015                  | LN-002, LN-106           |
+| CloudSleeve Laptop Case | LN-010               | LN-033, LN-132           |
+| Summit Laptop Stand  | LN-042                  | LN-041, LN-102           |
+| InkTrail Journal     | LN-004                  | LN-017, LN-143           |
+| Glide Mouse Pad      | LN-011                  | LN-064, LN-073           |
+| Halo Desk Lamp       | LN-027                  | LN-066, LN-068           |
+| SnapCharge Cable     | LN-097                  | LN-074, LN-091, LN-128   |
+| Studio Webcam Cover  | LN-023                  | LN-013, LN-195           |
+
+- Description should be derived from SKU lookup, not entered as free text.
+
+---
+
+### 11. `category`
+**Purpose:** Product category classification
+
+**Issues:**
+- **Same product assigned different categories across rows** — the `/ Student` suffix is applied inconsistently for the same SKU:
+  - `SKU-C-1018` (CloudSleeve): `Accessories / Student` (LN-008) vs. `Accessories` (LN-028)
+  - `SKU-U-1013` (InkTrail Journal): `School` (LN-016) vs. `School / Student` (LN-022)
+  - `SKU-U-1005` (Halo Desk Lamp): `Desk Setup` (LN-120) vs. `Desk Setup / Student` (LN-066)
+- **No controlled vocabulary** — the student designation is not a separate column; it is appended as a suffix with no enforcement.
+- **Inconsistent spacing** around the `/` separator.
+
+---
+
+### 12. `quantity`
+**Purpose:** Number of units sold
+
+**Issues:**
+- **Mixed data types** — some values are plain integers, others include the word "units":
+  - Integer: `1`, `2`, `3`
+  - String: `2 units` (LN-014), `3 units` (LN-025), `2 units` (LN-043), `2 units` (LN-047), etc.
+- This makes the column non-numeric and prevents direct aggregation or arithmetic without cleaning.
+
+---
+
+### 13. `unit_price`
+**Purpose:** Per-unit price of the product
+
+**Issues:**
+- **Currency code embedded in value** — `USD 18.99`, `CAD 46.99` — the currency prefix makes every value a string rather than a number.
+- **No dedicated currency column** — currency is only determinable by parsing the price string; there is no separate `currency` field.
+- **Same SKU priced differently across rows** — price variation exists (possibly by region or time) but is never explained or documented.
+
+---
+
+### 14. `discount`
+**Purpose:** Discount applied to the line item
+
+**Issues:**
+- **Multiple formats for the same concept — cannot be parsed as a number without normalization:**
+  - Percentage with symbol: `10%`, `5%`
+  - Raw number: `5`, `10`, `0`
+  - Named discount codes: `promo5`, `student 10%`
+  - Blank (missing) and `0` and `0%` all used to represent "no discount"
+- A value of `5` is ambiguous — it could mean 5%, $5 off, or something else.
+
+---
+
+### 15. `tax`
+**Purpose:** Tax rate or tax amount applied
+
+**Issues:**
+- **Three different representations of the same rate — impossible to parse consistently:**
+  - Decimal rate: `0.07`, `0.13`, `0.0825`
+  - Percentage string: `7%`, `13%`, `8.25%`
+  - Labeled string: `HST 13%`
+- **Many blank values** — LN-001, LN-003, LN-007, LN-023, and many others have no tax recorded.
+- **Ambiguity between rate and amount** — `0.07` could mean a 7% tax rate or a $0.07 flat tax; context does not clarify which.
+
+---
+
+### 16. `line_total`
+**Purpose:** Total dollar amount for the line item
+
+**Issues:**
+- **Inconsistent dollar sign formatting** — dollar sign present in some values, absent in others:
+  - `$19.43` (LN-001) vs. `19.43` (LN-098)
+  - `$32.38` (LN-009) vs. `32.38` (LN-016)
+- **Many blank values** — LN-002, LN-003, LN-004, LN-005, LN-006, and dozens more are missing a `line_total`.
+- **Calculation errors** — in some rows where all inputs are present, the `line_total` does not match the expected result. For example:
+  - LN-101: qty=1, price=USD 50.99, discount=5, tax=8.25% → expected ~$52.17, but `line_total` = 161.97 (appears to be the 3-unit total from a different row)
+
+---
+
+### 17. `ship_country`
+**Purpose:** Country the order ships to
+
+**Issues:**
+- **Inconsistent country code vs. full name:**
+  - `US` (majority) vs. `USA` (LN-044, LN-045, LN-081, LN-082)
+  - `CA` (majority) vs. `Canada` (LN-042, LN-067, LN-079)
+- **Blank values** — LN-054, LN-057, LN-066 are missing ship country entirely.
+
+---
+
+### 18. `ship_to`
+**Purpose:** Shipping destination
+
+**Issues:**
+- **Non-address placeholder values used instead of real addresses:**
+  - `Same as billing` — billing address not stored in this dataset
+  - `Dorm pickup` — no location data at all
+- **Inconsistent specificity** — some rows have `City, Province/State` (e.g., `Toronto, ON`, `Seattle, WA`); others use only a generic label.
+- **No structured address fields** — street, city, region, and postal code are not separated into distinct columns.
+
+---
+
+### 19. `size_or_weight`
+**Purpose:** Physical dimensions or weight of the product
+
+**Issues:**
+- **Multiple units used for the same product** — the same SKU is recorded with entirely different measurement units across rows:
+  - `SKU-C-1018` (CloudSleeve): `11"`, `one size`, `38cm`, `272 g`, `11 oz` all appear
+- **Mixed size and weight in the same column** — products measured by inches in one row are measured by grams in another.
+- **Inconsistent unit notation:**
+  - Inches: `11"` / `11 inches` / `11 in` / `11 inch`
+  - Ounces: `11 oz` / `11 ounces`
+  - Grams: `272g` / `272 g` / `272 grams`
+  - Kilograms: `0.30kg` / `0.30 kg` / `0.30 kilograms`
+  - Pounds: `0.6 lbs` / `0.6 lb` / `0.6 pound`
+  - Centimetres: `28cm` / `28 cm` / `28 centimetres`
+- **Blank values** — many rows are missing this field entirely.
+
+---
+
+### 20. `return_flag`
+**Purpose:** Indicates whether the item was returned
+
+**Issues:**
+- **Many blank values** — LN-004, LN-012, LN-014, LN-020, LN-022, LN-032, and many others have no value recorded.
+- **Ambiguity of blank** — it is unclear whether a blank means `N` (not returned), `Unknown`, or simply was not recorded. Without a data dictionary, blank cannot safely be treated as `N`.
+- A consistent policy of recording `N` when no return occurred would eliminate this ambiguity.
+
+---
+
+### 21. `notes`
+**Purpose:** Free-text notes about the order
+
+**Issues:**
+- **Uncontrolled vocabulary** — no defined set of allowed values; the three most common notes (`gift receipt`, `late ship`, `manual discount ok`) are written consistently but there is no enforcement.
+- **New value introduced mid-dataset** — `student promo` begins appearing in later rows (LN-110, LN-122, LN-127, LN-164) and was not used in earlier rows, suggesting evolving informal conventions.
+- **Single-value constraint** — some orders may warrant multiple notes (e.g., both `gift receipt` and `late ship`), but only one value fits per row.
+- **Blank values** — many rows have no note, which appears intentional but is inconsistent with rows where `0` discount is explicitly noted as `manual discount ok`.
+
 
 ## `Product_Supplier_Master`
 
