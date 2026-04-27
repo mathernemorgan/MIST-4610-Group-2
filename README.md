@@ -34,7 +34,7 @@ Our database was designed to transform the two messy source spreadsheets, Sales_
 
 The model centers on the retail sales process for Northline Outfitters, a small online retailer that purchases products from outside vendors and sells them directly to customers in the United States and Canada. The database separates operational data into core business entities so that customer, employee, product, vendor, order, and payment information are not stored repeatedly in a single spreadsheet row. This reduces redundancy and makes the data easier to query and maintain. 
 
-## **Conceptual Model / Database Description**
+## **Conceptual Model**
 ## Data Model
 ![Project Image](datamodelproject2.png)
 
