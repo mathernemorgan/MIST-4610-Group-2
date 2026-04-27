@@ -49,20 +49,13 @@ The model centers on the retail sales process for Northline Outfitters, a small 
 | **PaymentMethods** | Lookup | payment_method_id (PK), payment_type | Used by many Orders |
 
 
+The model separates transactional data into Orders and OrderLines. Orders store order-level details (date, customer, employee, payment, location), while OrderLines store product-level details (SKU, quantity, price, discount, tax, returns). This prevents repeating groups and supports accurate sales and revenue analysis.
 
-The main transactional entities in the model are Orders and OrderLines. The Orders table stores order-level information such as the order identifier, sale date, shipping location, customer, employee, payment method, and country. The OrderLines table stores the individual product lines associated with each order, including quantity, unit price, discount amount, tax amount, line total, return status, and any size or weight detail captured on the sales record. This separation is important because one order can contain multiple products, so storing everything in a single order table would create repeating groups and violate normalization principles. This structure also directly supports the project’s required revenue and sales-performance queries, which depend on line-level sales data and order-level shipping context.
+The Product table stores all product attributes (SKU, description, price, size/weight, category, etc.) and includes parent_sku to handle product variants. Product data is separated from transactions so it is maintained once and linked through SKU.
 
-The product side of the model is built around the Product entity. Each product is identified by a SKU and stores attributes such as alternate SKU, product description, list price, discontinuation status, weight, length, reorder level, pack size, notes, and category. The inclusion of parent_sku supports product variants by allowing one product to reference a parent product family. This reflects the source spreadsheet, which explicitly included alternate SKU values and parent SKU values for variant or related products. Product data was separated from sales transactions so that product attributes are maintained once and linked to each order line through the SKU relationship.
+Supporting tables include Category, Vendor, and a product_vendor bridge table. Categories standardize product groupings, while Vendor stores supplier information. The bridge table allows products to be linked to vendors and supports more flexible supplier relationships.
 
-Supporting the Product entity are the Categories, Vendor, and product_vendor tables. Categories stores the standardized product categories used in the cleaned data model, while Vendor stores supplier information such as vendor name, phone number, and vendor representative. The product_vendor bridge table represents the relationship between products and vendors and stores vendor-specific cost data. This design allows the database to represent situations in which the same product may be associated with a vendor record and helps support the required query asking which vendors supply products that appear in more than one category. Even if many products currently map to one primary vendor, using a bridge table makes the design more flexible and better aligned with the business context of supplier-managed inventory.
-
-The people-related side of the model includes Customer and Employees. The Customer table stores customer identifiers, names, email addresses, customer type, notes, and loyalty information. This structure was created because the source data embedded customer details inside a single customer_info field and also included email separately, so separating customer information into its own table reduces duplication across orders. The Employees table stores employee identifiers and manager information so that employee performance can be analyzed both individually and relative to employees under the same manager. This directly supports the required query comparing employees’ order-handling results within managerial groups.
-
-The PaymentMethods table standardizes how payment types are stored. Instead of repeating raw payment text such as Visa, Mastercard, or Debit on every order row, the model stores payment methods in a reference table and links them to orders and, in your current design, order lines. This improves consistency and reduces repeated text values. It also reflects the assignment’s emphasis on cleaning inconsistent payment formats from the source spreadsheets before using the data in queries.
-
-In terms of relationships, the most important business rules in the model are as follows. A Customer can place many Orders, but each order belongs to one customer. An Employee can handle many orders, but each order is associated with one employee. An Order can contain many OrderLines, but each order line belongs to one order. A Product can appear in many order lines, but each order line refers to one product. A Category can classify many products, while each product belongs to one category. A Vendor can be linked to many products through the product_vendor table, and a product can also be linked to one or more vendors through that same bridge table. A PaymentMethod can be used by many orders, while each order references one payment method. These relationships were chosen to make the model both normalized and practical for the required business questions.
-
-Overall, this model is designed to be parsimonious but still expressive enough to support the retail case. It separates the original spreadsheets into distinct business entities, reduces redundancy, enforces clearer identifiers and relationships, and creates a structure that is suitable for both data quality improvement and SQL analysis. In that sense, the model follows the project guidance to keep the design compact, well-justified, and focused on useful business queries rather than over-engineering the schema.
+Customer and employee data were separated into Customer and Employees tables to reduce duplication from the original dataset and support performance analysis. PaymentMethods was also separated to standardize inconsistent payment values.
 
 ## **Data Cleaning Process: Product_Supplier_Master**
 
@@ -99,8 +92,83 @@ The Product_Supplier_Master dataset contained multiple data quality issues, incl
 | 17 | `discontinued` | Boolean Y/N field has 17 nulls (28%) — product status unknown for over a quarter of SKUs | 17 nulls |
 | 18 | `category` (cross-sheet) | Category values don't align between `Sales_Dump` and `Product_Supplier_Master` — joins will produce mismatches | Both sheets |
 
+## SQL Code used to Clean Sales_Dump 
 
-## **The following SQL statements were used to clean the Product_Supplier_Master table, along with the justification for each step.**
+SQL
+```sql
+UPDATE Sales_Dump
+SET sale_date = CASE 
+    WHEN sale_date LIKE '%-%' THEN STR_TO_DATE(sale_date, '%m-%d-%Y')
+    WHEN sale_date LIKE '%Oct%' THEN '2025-10-17' -- Handled unique natural language cases
+    ELSE sale_date 
+END;
+2. Customer Attribute Decomposition
+Issue: The customer_info column contained three distinct data points—Name, Type, and Loyalty status—concatenated into a single string.
+Solution: Employed SUBSTRING_INDEX and TRIM to split the string into atomic columns, following the principle of Database Normalization.
+
+SQL
+-- Extracting Name
+UPDATE Sales_Dump SET customer_name = TRIM(SUBSTRING_INDEX(customer_info, ',', 1));
+
+-- Extracting Loyalty Member Status (Boolean Conversion)
+UPDATE Sales_Dump 
+SET is_loyalty_member = CASE 
+    WHEN customer_info LIKE '%Member%' THEN 1 
+    ELSE 0 
+END;
+3. Geographic & Null Remediation
+Issue: Missing data in shipping columns and placeholder text like "Same as billing" rendered regional reports inaccurate.
+Solution: Used UPDATE statements to map billing data to shipping fields where necessary and parsed combined city/region strings.
+
+SQL
+UPDATE Sales_Dump 
+SET ship_city = TRIM(SUBSTRING_INDEX(location_string, ',', 1)),
+    ship_region = TRIM(SUBSTRING_INDEX(location_string, ',', -1))
+WHERE location_string IS NOT NULL;
+4. Financial & Numeric Conversion
+Issue: Unit prices and totals included currency symbols ($, %) and were stored as text, which blocked mathematical operations like SUM() and AVG().
+Solution: Stripped non-numeric symbols using REPLACE and cast the remaining strings to the DECIMAL data type.
+
+SQL
+UPDATE Sales_Dump 
+SET unit_price = CAST(REPLACE(unit_price, '$', '') AS DECIMAL(10,2)),
+    line_total = CAST(REPLACE(line_total, '$', '') AS DECIMAL(10,2));
+5. Referential Consistency (Normalization)
+Issue: Inconsistent casing (e.g., "visa" vs. "VISA" or "sku-1" vs. "SKU-1") would cause foreign key constraint violations.
+Solution: Applied UPPER and TRIM to all primary and foreign key columns to ensure perfect matching during table joins.
+
+SQL
+UPDATE Sales_Dump 
+SET sku = UPPER(TRIM(sku)),
+    payment_method = UPPER(TRIM(payment_method));
+6. Feature Engineering (Boolean Flags)
+Issue: Operational insights (e.g., late shipments or gift orders) were buried in unstructured text within the notes column.
+Solution: Created new Boolean columns and used the LIKE operator to extract specific flags for advanced business intelligence.
+
+SQL
+-- Identifying Late Shipments
+UPDATE Sales_Dump 
+SET is_late_ship = 1 
+WHERE notes LIKE '%late%';
+
+-- Flagging Manual Discounts for Audit
+UPDATE Sales_Dump 
+SET is_manual_discount = 1 
+WHERE notes LIKE '%promo%' OR notes LIKE '%discount%';
+7. Handling "Orphan" Records
+Issue: Sales records with missing customer emails or non-existent SKUs would fail to import into a strict relational schema.
+Solution: Identified these records and mapped them to a pre-defined "Unknown" placeholder in the parent tables to preserve transaction volume while maintaining integrity.
+```
+
+SQL
+-- Redirecting missing links to a Guest placeholder
+INSERT INTO Orders (customer_id, ...)
+SELECT IFNULL(c.customer_id, 9999), ...
+FROM Sales_Dump s
+LEFT JOIN Customers c ON s.customer_email = c.email;
+Summary: Through these programmatic updates, the dataset was transformed from a low-integrity "flat" format into a clean, normalized structure ready for complex SQL joins and multi-dimensional reporting.
+
+## ** SQL codes to clean the Product_Supplier_Master table**
 ```sql
 -- SKU-related cleanup
 UPDATE Product_Supplier_Master
@@ -285,11 +353,6 @@ WHERE p.parent_sku IS NOT NULL
 We had trouble finding a working SQL code to fix the Pack Size, so we just manually edited the column, and it was way easier to fix the column that way. 
 
 ## **Justification for Cleaning Steps**
-
-# Data Cleaning Process
-
-All cleaning was performed using SQL in MySQL Workbench after importing the raw data. The cleaned outputs are stored in structured datasets, with a full audit trail of transformations documented.
-
 ---
 
 ## Sales_Dump Cleaning
@@ -421,191 +484,6 @@ All cleaning was performed using SQL in MySQL Workbench after importing the raw 
 ## Final Outcome
 The dataset was transformed from an inconsistent spreadsheet into a structured, analysis-ready dataset. Cleaning steps ensured consistency, reduced redundancy, and enforced referential integrity, supporting downstream normalization into relational tables such as Product, Vendor, and Category.
 
-# Data Cleaning Process
-
-All cleaning was performed using SQL in MySQL Workbench after importing the raw data. The cleaned outputs are stored in structured datasets, with a full audit trail of transformations documented.
-
----
-
-## Sales_Dump Cleaning
-
-### Dates
-- Standardized to ISO format (YYYY-MM-DD)
-- CORD → DD-MM-YYYY
-- UORD → MM-DD-YYYY
-- Manual corrections applied where necessary
-
-### Country
-- Normalized to US / CA
-- Filled nulls using order_id prefix logic
-
-### Payment Method
-- Converted to title case
-- Standardized abbreviations (MC → Mastercard)
-
-### Discounts
-- Converted all values to decimals (e.g., 10% → 0.10)
-- Extracted numeric values from text
-
-### Tax
-- Converted to decimal format
-- Filled using order-level consistency
-- Remaining nulls left unchanged
-
-### Prices / Line Totals
-- Removed currency symbols
-- Stored as numeric
-- Left null where inconsistent
-
-### Quantity
-- Extracted numeric values from text
-- Stored as integer
-
-### Customer Info
-- Split into first name, last name, type
-- Defaulted missing types to Standard
-
-### Category
-- Standardized into:
-  - Tech, Apparel, Audio, School, Accessories, Lifestyle, Desk Setup
-
-### Size / Weight
-- Converted:
-  - Weight → grams
-  - Length → cm
-- Preserved "one size"
-
-### Product Descriptions
-- Converted ALL CAPS to title case
-- Corrected mismatches using reference table
-
-### Emails
-- Fixed malformed entries
-- Filled using composite key where unique
-- Remaining nulls left unchanged
-
-### Return Flag
-- Filled nulls with "N"
-
----
-
-## Product_Supplier_Master Cleaning
-
-### Category
-- Standardized into 7 categories
-
-### Cost / List Price
-- Removed currency prefixes
-- Converted to numeric
-
-### Weight / Length
-- Converted to:
-  - weight_g
-  - length_cm
-
-### Duplicates
-- Removed exact duplicates
-- Preserved SKU variants
-
-### Null Fields
-- Filled using deterministic logic
-- Logged all updates
-
-### Reorder Level
-- Converted text values to numeric
-- Corrected inconsistencies
-
-### Parent SKU
-- Filled for variants
-- Linked to base product
-
-### Vendor Data
-- Standardized names and phone numbers
-- Split representative names into components
-
-### Pack Size
-- Standardized formatting (e.g., "1 each")
-
-
-## **Data Cleaning Process: Sales_Dump**
-
-1. Date Standardization
-Issue: Dates were stored as inconsistent strings (e.g., "10-11-2025" and "Oct 17 25"), preventing time-series analysis.
-Solution: Used the STR_TO_DATE function to parse various string formats into the standard SQL DATE format (YYYY-MM-DD).
-
-SQL
-```sql
-UPDATE Sales_Dump
-SET sale_date = CASE 
-    WHEN sale_date LIKE '%-%' THEN STR_TO_DATE(sale_date, '%m-%d-%Y')
-    WHEN sale_date LIKE '%Oct%' THEN '2025-10-17' -- Handled unique natural language cases
-    ELSE sale_date 
-END;
-2. Customer Attribute Decomposition
-Issue: The customer_info column contained three distinct data points—Name, Type, and Loyalty status—concatenated into a single string.
-Solution: Employed SUBSTRING_INDEX and TRIM to split the string into atomic columns, following the principle of Database Normalization.
-
-SQL
--- Extracting Name
-UPDATE Sales_Dump SET customer_name = TRIM(SUBSTRING_INDEX(customer_info, ',', 1));
-
--- Extracting Loyalty Member Status (Boolean Conversion)
-UPDATE Sales_Dump 
-SET is_loyalty_member = CASE 
-    WHEN customer_info LIKE '%Member%' THEN 1 
-    ELSE 0 
-END;
-3. Geographic & Null Remediation
-Issue: Missing data in shipping columns and placeholder text like "Same as billing" rendered regional reports inaccurate.
-Solution: Used UPDATE statements to map billing data to shipping fields where necessary and parsed combined city/region strings.
-
-SQL
-UPDATE Sales_Dump 
-SET ship_city = TRIM(SUBSTRING_INDEX(location_string, ',', 1)),
-    ship_region = TRIM(SUBSTRING_INDEX(location_string, ',', -1))
-WHERE location_string IS NOT NULL;
-4. Financial & Numeric Conversion
-Issue: Unit prices and totals included currency symbols ($, %) and were stored as text, which blocked mathematical operations like SUM() and AVG().
-Solution: Stripped non-numeric symbols using REPLACE and cast the remaining strings to the DECIMAL data type.
-
-SQL
-UPDATE Sales_Dump 
-SET unit_price = CAST(REPLACE(unit_price, '$', '') AS DECIMAL(10,2)),
-    line_total = CAST(REPLACE(line_total, '$', '') AS DECIMAL(10,2));
-5. Referential Consistency (Normalization)
-Issue: Inconsistent casing (e.g., "visa" vs. "VISA" or "sku-1" vs. "SKU-1") would cause foreign key constraint violations.
-Solution: Applied UPPER and TRIM to all primary and foreign key columns to ensure perfect matching during table joins.
-
-SQL
-UPDATE Sales_Dump 
-SET sku = UPPER(TRIM(sku)),
-    payment_method = UPPER(TRIM(payment_method));
-6. Feature Engineering (Boolean Flags)
-Issue: Operational insights (e.g., late shipments or gift orders) were buried in unstructured text within the notes column.
-Solution: Created new Boolean columns and used the LIKE operator to extract specific flags for advanced business intelligence.
-
-SQL
--- Identifying Late Shipments
-UPDATE Sales_Dump 
-SET is_late_ship = 1 
-WHERE notes LIKE '%late%';
-
--- Flagging Manual Discounts for Audit
-UPDATE Sales_Dump 
-SET is_manual_discount = 1 
-WHERE notes LIKE '%promo%' OR notes LIKE '%discount%';
-7. Handling "Orphan" Records
-Issue: Sales records with missing customer emails or non-existent SKUs would fail to import into a strict relational schema.
-Solution: Identified these records and mapped them to a pre-defined "Unknown" placeholder in the parent tables to preserve transaction volume while maintaining integrity.
-
-SQL
--- Redirecting missing links to a Guest placeholder
-INSERT INTO Orders (customer_id, ...)
-SELECT IFNULL(c.customer_id, 9999), ...
-FROM Sales_Dump s
-LEFT JOIN Customers c ON s.customer_email = c.email;
-Summary: Through these programmatic updates, the dataset was transformed from a low-integrity "flat" format into a clean, normalized structure ready for complex SQL joins and multi-dimensional reporting.
-```
 
 ## **Queries**
 
