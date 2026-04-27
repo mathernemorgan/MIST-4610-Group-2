@@ -119,15 +119,20 @@ We imported the two sheets into MySQL and used the following queries to clean th
 ## Highest Priority Quality issues 
 
 1. **Dates are a mess (sale_date)**
-Seven different formats, ambiguous day/month ordering, and a future date. You literally cannot sort or filter by date reliably until this is fixed. Everything time-based — trends, reports, order history — is broken.
+Seven different formats, ambiguous day/month ordering, and a future date. You literally cannot sort or filter by date reliably until this is fixed. Everything time-based, trends, reports, order history, is broken.
+
 2. **The same product has no single identity (sku)**
 The same SKU appears in both uppercase and lowercase across both sheets, meaning a lookup from Sales_Dump to Product_Supplier_Master will silently fail for half the rows. You'd have missing products and no error to tell you why.
+
 3. **Money can't be calculated (unit_price, cost, discount, tax, line_total)**
 Currency is embedded in the price cell, discounts are written five different ways, tax is written three different ways, and hundreds of line_total cells are just blank. You cannot calculate revenue, profit margin, or anything financial without cleaning every single one of these columns first.
+
 4. **The same product is described differently everywhere (product_description, category)**
 All caps on some rows, title case on others, and the same product assigned different categories depending on the row. Any grouping or reporting by product or category will double-count or split things that should be together.
+
 5. **The vendor name has a typo that splits one vendor into two (vendor_name)**
 Urban Source vs. Urban Sources — this is small but dangerous. Any vendor-level report, spend summary, or contact list will show two entries for what is actually the same company, and neither will have the full picture.
+
 6. **A "discontinued" product is one of the best sellers**
 SKU-C-1014 (NoteNest Planner) is flagged as discontinued in Product_Supplier_Master but appears constantly throughout Sales_Dump. Either the product master is wrong, or sales are being recorded for a product that shouldn't exist anymore. Either way, something is seriously off between the two sheets.
 
