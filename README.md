@@ -68,6 +68,38 @@ Overall, this model is designed to be parsimonious but still expressive enough t
 
 The Product_Supplier_Master dataset contained multiple data quality issues, including inconsistent identifiers, mixed text and numeric formats, embedded currency labels, inconsistent units of measure, redundant helper columns, and unstructured notes. These issues were cleaned using SQL so the data could be standardized and loaded into the final relational model. The source spreadsheet included product, vendor, pricing, packaging, measurement, discontinuation, and parent SKU fields, so the cleaning process focused on making each of those attributes consistent and usable in the database.
 
+## Issues Identified
+## Sheet 1: `Sales_Dump` — 200 rows × 21 columns
+
+| # | Column(s) | Issue | Rows Affected |
+|---|-----------|-------|---------------|
+| 1 | `sale_date` | 7+ date formats mixed; DD/MM vs MM/DD ambiguity (e.g. `10/11/2025`) | 200 |
+| 2 | `unit_price`, `line_total` | Currency codes embedded in numeric string (`"USD 18.99"`); `line_total` mixes `"$19.43"` with bare `97.19` | 200 / 138 |
+| 3 | `discount` | Six formats: `"10%"`, `"5"`, `"promo5"`, `"student 10%"`, `"0"`, nulls — unclear if bare numbers are % or $ | 168 non-null |
+| 4 | `payment_method` | Case inconsistency: `"visa"` / `"VISA"` (53 rows); abbreviation mismatch: `"MC"` vs `"Mastercard"` | 200 |
+| 5 | `ship_country` | `"US"` and `"USA"` used interchangeably; `"CA"` and `"Canada"` both present; 3 nulls | ~130 + 3 nulls |
+| 6 | `return_flag` | Boolean Y/N field has 40 nulls (20%) — unclear if null means `"N"` or unknown | 40 nulls |
+| 7 | `customer_info` | Multi-value field with 3 delimiters (`;`, `\|`, `/`); buries loyalty status, student flag, and country | 200 |
+| 8 | `customer_email` | 50 nulls (25% of records) | 50 nulls |
+| 9 | `line_total` | 62 nulls (31%) — should be derivable but source columns are also inconsistently formatted | 62 nulls |
+| 10 | `order_id` | Country encoded implicitly in prefix (`UORD`=US, `CORD`=CA) — undocumented business rule | 200 |
+
+---
+
+## Sheet 2: `Product_Supplier_Master` — 60 rows × 16 columns
+
+| # | Column(s) | Issue | Rows Affected |
+|---|-----------|-------|---------------|
+| 11 | `sku` | Mixed casing: `"SKU-C-1002"` and `"sku-c-1002"` treated as different records | ~30 rows |
+| 12 | `sku` | 18 SKUs appear 2–5× as duplicate rows; some are variants, others appear to be data entry errors | 18 SKUs |
+| 13 | `category` | No controlled vocabulary: `"Tech & Student"`, `"Tech / Student"`, `"Accessories / Accessories"`, `"Student and apparels"`, comma delimiters mixed with slash | 60 |
+| 14 | `cost`, `list_price` | Some values have currency codes (`"USD 6.25"`), others are bare numbers (`31.4`) — no separate currency column | 60 |
+| 15 | `weight` | 10+ unit variants: `oz`, `ounces`, `g`, `grams`, `lb`, `lbs`, `pound`, `pounds`, `kg`, `kilograms` — no standard unit | 49 non-null |
+| 16 | `length` | 18 format variants: `"10.2 in"`, `"10.2\""`, `"10.2 inches"`, `"25.4cm"`, `"26 centimetres"` — needs numeric + unit split | 47 non-null |
+| 17 | `discontinued` | Boolean Y/N field has 17 nulls (28%) — product status unknown for over a quarter of SKUs | 17 nulls |
+| 18 | `category` (cross-sheet) | Category values don't align between `Sales_Dump` and `Product_Supplier_Master` — joins will produce mismatches | Both sheets |
+
+
 ## **The following SQL statements were used to clean the Product_Supplier_Master table, along with the justification for each step.**
 ```sql
 -- SKU-related cleanup
@@ -249,7 +281,12 @@ WHERE p.parent_sku IS NOT NULL
   AND c.sku IS NULL;
 ```
 
+# Manually Edit
+We had trouble finding a working SQL code to fix the Pack Size, so we just manually edited the column, and it was way easier to fix the column that way. 
+
 ## **Justification for Cleaning Steps**
+
+
 
 SKU, alt_sku, and parent_sku were standardized by trimming whitespace, converting values to uppercase, and replacing blanks with NULL. This was necessary because SKU fields act as identifiers, and inconsistent formatting would create duplicate-looking products or broken parent-child relationships. The spreadsheet documentation makes clear that SKU is the internal product code and that parent_sku is used to link variants to a main product, so these fields had to be consistent for referential integrity.
 
